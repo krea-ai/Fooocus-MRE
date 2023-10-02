@@ -382,14 +382,15 @@ def worker():
             ))
 
 
-        if use_expansion:
-            for i, t in enumerate(tasks):
-                progressbar(5, f'Preparing Fooocus text #{i + 1} ...')
-                expansion = pipeline.expansion(t['prompt'], t['task_seed'])
-                print(f'[Prompt Expansion] New suffix: {expansion}')
-                t['expansion'] = expansion
-                t['positive'] = copy.deepcopy(t['positive']) + [join_prompts(t['prompt'], expansion)]  # Deep copy.
-
+        # if use_expansion:
+        #     for i, t in enumerate(tasks):
+        #         progressbar(5, f'Preparing Fooocus text #{i + 1} ...')
+        #         expansion = pipeline.expansion(t['prompt'], t['task_seed'])
+        #         print(f'[Prompt Expansion] New suffix: {expansion}')
+        #         t['expansion'] = expansion
+        #         t['positive'] = copy.deepcopy(t['positive']) + [join_prompts(t['prompt'], expansion)]  # Deep copy.
+                # print(f"t['positive'] = {t['positive']}")
+        
         for i, t in enumerate(tasks):
             progressbar(7, f'Encoding base positive #{i + 1} ...')
             t['c'][0] = pipeline.clip_encode(sd=pipeline.xl_base_patched, texts=t['positive'],

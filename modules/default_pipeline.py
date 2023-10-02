@@ -112,24 +112,25 @@ def refresh_refiner_model(name):
 
 @torch.no_grad()
 @torch.inference_mode()
-def patch_base(loras, freeu, b1, b2, s1, s2):
-    global xl_base, xl_base_patched, xl_base_patched_hash
-    if xl_base_patched_hash == str(loras + [freeu, b1, b2, s1, s2]):
-        return
+def patch_base(loras, freeu, b1, b2, s1, s2, xl_base=None,):
+    # global xl_base, xl_base_patched, xl_base_patched_hash
+    # if xl_base_patched_hash == str(loras + [freeu, b1, b2, s1, s2]):
+    #     return
 
     model = xl_base
-    for name, weight in loras:
-        if name == 'None':
-            continue
+    if loras:
+        for name, weight in loras:
+            if name == 'None':
+                continue
 
-        if os.path.exists(name):
-            filename = name
-        else:
-            filename = os.path.join(modules.path.lorafile_path, name)
+            if os.path.exists(name):
+                filename = name
+            else:
+                filename = os.path.join(modules.path.lorafile_path, name)
 
-        assert os.path.exists(filename), 'Lora file not found!'
+            assert os.path.exists(filename), 'Lora file not found!'
 
-        model = core.load_sd_lora(model, filename, strength_model=weight, strength_clip=weight)
+            model = core.load_sd_lora(model, filename, strength_model=weight, strength_clip=weight)
     if freeu:
         xl_base_patched = core.freeu(model, b1, b2, s1, s2)
     else:
@@ -139,7 +140,7 @@ def patch_base(loras, freeu, b1, b2, s1, s2):
     if freeu:
         print(f'FreeU applied: {[b1, b2, s1, s2]}')
 
-    return
+    return xl_base_patched
 
 
 @torch.no_grad()
@@ -209,11 +210,9 @@ def apply_prompt_strength(base_cond, refiner_cond, prompt_strength=1.0):
     if prompt_strength >= 0 and prompt_strength < 1.0:
         base_cond = core.set_conditioning_strength(base_cond, prompt_strength)
 
-    if xl_refiner is not None:
+    if refiner_cond:
         if prompt_strength >= 0 and prompt_strength < 1.0:
             refiner_cond = core.set_conditioning_strength(refiner_cond, prompt_strength)
-    else:
-        refiner_cond = None
     return base_cond, refiner_cond
 
 
@@ -307,35 +306,35 @@ def refresh_everything(refiner_model_name, base_model_name, loras, freeu, b1, b2
     return
 
 
-refresh_everything(
-    refiner_model_name=default_settings['refiner_model'],
-    base_model_name=default_settings['base_model'],
-    loras=[(default_settings['lora_1_model'], default_settings['lora_1_weight']),
-        (default_settings['lora_2_model'], default_settings['lora_2_weight']),
-        (default_settings['lora_3_model'], default_settings['lora_3_weight']),
-        (default_settings['lora_4_model'], default_settings['lora_4_weight']),
-        (default_settings['lora_5_model'], default_settings['lora_5_weight'])],
-    freeu=default_settings['freeu'],
-    b1=default_settings['freeu_b1'],
-    b2=default_settings['freeu_b2'],
-    s1=default_settings['freeu_s1'],
-    s2=default_settings['freeu_s2']
-)
+# refresh_everything(
+#     refiner_model_name=default_settings['refiner_model'],
+#     base_model_name=default_settings['base_model'],
+#     loras=[(default_settings['lora_1_model'], default_settings['lora_1_weight']),
+#         (default_settings['lora_2_model'], default_settings['lora_2_weight']),
+#         (default_settings['lora_3_model'], default_settings['lora_3_weight']),
+#         (default_settings['lora_4_model'], default_settings['lora_4_weight']),
+#         (default_settings['lora_5_model'], default_settings['lora_5_weight'])],
+#     freeu=default_settings['freeu'],
+#     b1=default_settings['freeu_b1'],
+#     b2=default_settings['freeu_b2'],
+#     s1=default_settings['freeu_s1'],
+#     s2=default_settings['freeu_s2']
+# )
 
-expansion = FooocusExpansion()
+# expansion = FooocusExpansion()
 
 
 @torch.no_grad()
 @torch.inference_mode()
-def patch_all_models():
-    assert xl_base is not None
-    assert xl_base_patched is not None
+def patch_all_models(xl_base, xl_refiner=None):
+    # assert xl_base is not None
+    # assert xl_base_patched is not None
 
     xl_base.unet.model_options['sampler_cfg_function'] = cfg_patched
     xl_base.unet.model_options['model_function_wrapper'] = patched_model_function
 
-    xl_base_patched.unet.model_options['sampler_cfg_function'] = cfg_patched
-    xl_base_patched.unet.model_options['model_function_wrapper'] = patched_model_function
+    # xl_base_patched.unet.model_options['sampler_cfg_function'] = cfg_patched
+    # xl_base_patched.unet.model_options['model_function_wrapper'] = patched_model_function
 
     if xl_refiner is not None:
         xl_refiner.unet.model_options['sampler_cfg_function'] = cfg_patched
@@ -352,6 +351,7 @@ def process_diffusion(positive_cond, negative_cond, steps, switch, width, height
 
     patch_all_models()
 
+    xl_refiner = None
     if xl_refiner is not None:
         virtual_memory.try_move_to_virtual_memory(xl_refiner.unet.model)
     virtual_memory.load_from_virtual_memory(xl_base.unet.model)
@@ -378,6 +378,7 @@ def process_diffusion(positive_cond, negative_cond, steps, switch, width, height
         positive_conditions, negative_conditions = core.apply_controlnet(positive_conditions, negative_conditions,
             controlnet_depth, input_image, depth_strength, depth_start, depth_stop)
 
+    xl_refiner = None
     if xl_refiner is not None and is_base_sdxl():
         positive_conditions_refiner = positive_cond[1]
         negative_conditions_refiner = negative_cond[1]
@@ -400,6 +401,12 @@ def process_diffusion(positive_cond, negative_cond, steps, switch, width, height
             callback_function=callback
         )
     else:
+        steps = 30
+        force_full_denoise = True
+        denoise = 1.
+        image_seed = 123
+        sampler_name = "euler"
+        callback = None
         sampled_latent = core.ksampler(
             model=xl_base_patched.unet,
             positive=positive_conditions,

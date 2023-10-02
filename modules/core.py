@@ -243,6 +243,7 @@ taesd = None
 @torch.no_grad()
 @torch.inference_mode()
 def get_previewer(device, latent_format, is_sdxl=True):
+    return None
     global VAE_approx_model, taesd
 
     if VAE_approx_model is None and is_sdxl:
