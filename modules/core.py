@@ -1,4 +1,5 @@
 from modules.patch import patch_all
+import time
 
 patch_all()
 
@@ -72,14 +73,16 @@ def load_model(ckpt_filename):
     return StableDiffusionModel(unet=unet, clip=clip, vae=vae, clip_vision=clip_vision, model_filename=ckpt_filename)
 
 
-@torch.no_grad()
 @torch.inference_mode()
 def load_sd_lora(model, lora_filename, strength_model=1.0, strength_clip=1.0):
     if strength_model == 0 and strength_clip == 0:
         return model
 
+    t = time.time()
     lora = comfy.utils.load_torch_file(lora_filename, safe_load=False)
+    print("safetensors load time: ", time.time() - t)
 
+    t = time.time()
     if lora_filename.lower().endswith('.fooocus.patch'):
         loaded = lora
     else:
@@ -100,8 +103,8 @@ def load_sd_lora(model, lora_filename, strength_model=1.0, strength_clip=1.0):
             print("Lora missed: ", x)
 
     unet, clip = new_modelpatcher, new_clip
+    print("model patch time: ", time.time() - t)
     return StableDiffusionModel(unet=unet, clip=clip, vae=model.vae, clip_vision=model.clip_vision)
-
 
 @torch.no_grad()
 @torch.inference_mode()

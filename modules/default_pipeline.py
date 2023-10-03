@@ -135,7 +135,7 @@ def patch_base(loras, freeu, b1, b2, s1, s2, xl_base=None,):
         xl_base_patched = core.freeu(model, b1, b2, s1, s2)
     else:
         xl_base_patched = model
-    xl_base_patched_hash = str(loras + [freeu, b1, b2, s1, s2])
+    # xl_base_patched_hash = str(loras + [freeu, b1, b2, s1, s2])
     print(f'LoRAs loaded: {loras}')
     if freeu:
         print(f'FreeU applied: {[b1, b2, s1, s2]}')
